@@ -12,10 +12,12 @@ class RockHeadless extends WireData implements Module {
   const prefix = 'rockheadless_';
   const endpoint = 'api';
 
+  private $callbacks;
+
   public static function getModuleInfo() {
     return [
       'title' => 'RockHeadless',
-      'version' => '0.0.3',
+      'version' => '0.0.4',
       'summary' => 'Provide easy json feeds for using PW as Headless CMS',
       'autoload' => true,
       'singular' => true,
@@ -24,10 +26,17 @@ class RockHeadless extends WireData implements Module {
   }
 
   public function init() {
-    $url = self::endpoint;
-    $this->addHookAfter("/$url/{path}", $this, "serve");
+    $this->wire('rockheadless', $this);
+    $callbacks = $this->wire(new WireData()); /** @var WireData $callbacks */
+    $this->callbacks = $callbacks;
+
     $this->addHookAfter("ProcessPageEdit::buildFormContent", $this, "addGUI");
     $this->addHookAfter("ProcessPageEdit::processInput", $this, "sleep");
+  }
+
+  public function ready() {
+    $url = self::endpoint;
+    $this->addHookAfter("/$url/{path}", $this, "serve");
   }
 
   /**
@@ -94,9 +103,45 @@ class RockHeadless extends WireData implements Module {
    */
   public function ___getData($page) {
     $data = $this->wakeup($page);
+    $fields = (array)$data->fields; // prevent wrong ide lints
     $selector = str_replace("{page}", $page, $data->selector);
-    $pages = $this->wire->pages->findRaw($selector, $data->fields);
+    $pages = $this->wire->pages->findRaw($selector, $fields);
+    $callbacks = $this->callbacks;
+
+    if($this->hasHookedField($data)) {
+      foreach($pages as $i=>$p) {
+        foreach($p as $field=>$val) {
+          if(!$cb = $callbacks->$field) continue;
+          try {
+            $val = $cb->__invoke((object)$p, $page);
+          } catch (\Throwable $th) {
+            $this->log($th->getMessage());
+            $val = '';
+          }
+          $pages[$i][$field] = $val;
+        }
+      }
+    }
+
     return array_values($pages);
+  }
+
+  /**
+   * Is one of the fields hooked?
+   * @return bool
+   */
+  public function hasHookedField($data) {
+    foreach($this->callbacks as $field=>$callback) {
+      if(in_array($field, $data->fields)) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Register a return callback
+   */
+  public function return($field, $callback) {
+    $this->callbacks->set($field, $callback);
   }
 
   /**
@@ -143,7 +188,7 @@ class RockHeadless extends WireData implements Module {
       'selector' => $input->post(self::prefix."selector", 'text'),
     ];
 
-    $page->meta('rockheadless', $data);
+    $page->meta('rockheadless_data', $data);
   }
 
   /**
@@ -157,7 +202,9 @@ class RockHeadless extends WireData implements Module {
       'fields' => [],
       'selector' => '',
     ]);
-    $data->setArray($page->meta('rockheadless') ?: []);
+    $arr = $page->meta('rockheadless_data');
+    if(!is_array($arr)) $arr = [];
+    $data->setArray($arr);
     return $data;
   }
 
