@@ -15,7 +15,7 @@ class RockHeadless extends WireData implements Module {
   public static function getModuleInfo() {
     return [
       'title' => 'RockHeadless',
-      'version' => '0.0.1',
+      'version' => '0.0.3',
       'summary' => 'Provide easy json feeds for using PW as Headless CMS',
       'autoload' => true,
       'singular' => true,
@@ -44,7 +44,7 @@ class RockHeadless extends WireData implements Module {
     /** @var InputfieldCheckbox $check */
     $check = $this->wire(new InputfieldCheckbox());
     $check->name = self::prefix."expose";
-    $check->label = ' Expose children of this page to RockHeadless API';
+    $check->label = ' Expose this page to RockHeadless API';
     $check->attr('checked', $data->expose ? 'checked' : '');
     $check->attr('uk-toggle', ".rh-toggle");
 
@@ -73,6 +73,8 @@ class RockHeadless extends WireData implements Module {
         .$f->render()
         .$selector->render(),
       'notes' => "API-Endpoint: [$url]($url)",
+      'collapsed' => !$data->expose,
+      'icon' => 'bolt',
     ]);
   }
 
