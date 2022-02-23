@@ -108,21 +108,22 @@ class RockHeadless extends WireData implements Module {
     $pages = $this->wire->pages->findRaw($selector, $fields);
     $callbacks = $this->callbacks;
 
-    if($this->hasHookedField($data)) {
-      foreach($pages as $i=>$p) {
-        foreach($p as $field=>$val) {
-          if(!$cb = $callbacks->$field) continue;
-          try {
-            $val = $cb->__invoke((object)$p, $page);
-          } catch (\Throwable $th) {
-            $this->log($th->getMessage());
-            $val = '';
-          }
-          $pages[$i][$field] = $val;
+    // early exit if no callbacks
+    if(!$this->hasHookedField($data)) return array_values($pages);
+
+    // loop page data and execute callbacks
+    foreach($pages as $i=>$p) {
+      foreach($p as $field=>$val) {
+        if(!$cb = $callbacks->$field) continue;
+        try {
+          $val = $cb->__invoke((object)$p, $page);
+        } catch (\Throwable $th) {
+          $this->log($th->getMessage());
+          $val = '';
         }
+        $pages[$i][$field] = $val;
       }
     }
-
     return array_values($pages);
   }
 
