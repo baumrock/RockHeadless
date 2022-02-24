@@ -17,7 +17,7 @@ class RockHeadless extends WireData implements Module {
   public static function getModuleInfo() {
     return [
       'title' => 'RockHeadless',
-      'version' => '0.0.4',
+      'version' => '0.0.5',
       'summary' => 'Provide easy json feeds for using PW as Headless CMS',
       'autoload' => true,
       'singular' => true,
@@ -30,8 +30,10 @@ class RockHeadless extends WireData implements Module {
     $callbacks = $this->wire(new WireData()); /** @var WireData $callbacks */
     $this->callbacks = $callbacks;
 
-    $this->addHookAfter("ProcessPageEdit::buildFormContent", $this, "addGUI");
-    $this->addHookAfter("ProcessPageEdit::processInput", $this, "sleep");
+    if($this->wire->user->isSuperuser()) {
+      $this->addHookAfter("ProcessPageEdit::buildFormContent", $this, "addGUI");
+      $this->addHookAfter("ProcessPageEdit::processInput", $this, "sleep");
+    }
   }
 
   public function ready() {
